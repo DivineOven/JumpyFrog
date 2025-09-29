@@ -1,8 +1,8 @@
-# BasicFlappy
+# JumpyFrog
 
 A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
 
-This project was generated with a template including simple application launchers and an empty `ApplicationListener` implementation.
+A little game, my first game with no tutorials! Hold space to charge your jump and release at the right time for the desired height. Avoid the alligators!
 
 ## Platforms
 
