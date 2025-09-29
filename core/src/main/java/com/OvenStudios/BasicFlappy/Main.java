@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -24,7 +25,8 @@ public class Main implements ApplicationListener {
 
     SpriteBatch spriteBatch;
     Sprite frogSprite;
-    //Sprite alligatorSprite;
+
+    ShapeRenderer shapeRenderer;
 
     FitViewport viewport;
     Random random = new Random();
@@ -35,6 +37,7 @@ public class Main implements ApplicationListener {
     float maxJumpCharge = 4f;
     float alligatorSpeed = 1.5f;
 
+    // Alligator configuration constants
     private static final int ALLIGATOR_COUNT = 4;
     private static final float ALLIGATOR_SPACING = 4f;
     private static final float ALLIGATOR_WIDTH = 1f;
@@ -48,6 +51,7 @@ public class Main implements ApplicationListener {
         alligatorTexture = new Texture("alligatorTest.png");
 
         spriteBatch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
         viewport = new FitViewport(8, 5);
 
         frogSprite = new Sprite(frogTexture);
@@ -120,6 +124,8 @@ public class Main implements ApplicationListener {
                 }
             }
         }
+
+
     }
 
 
@@ -170,8 +176,24 @@ public class Main implements ApplicationListener {
             alligator.draw(spriteBatch);
         }
 
-
         spriteBatch.end();
+
+        float meterHeight = 0.1f;
+        float meterWidth = maxJumpCharge;
+        float chargeRatio = Math.min(spaceTimer / maxJumpCharge, 1f);
+
+        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.rect(worldWidth / 2f - meterWidth / 2f, worldHeight - 0.5f, meterWidth, meterHeight);
+        shapeRenderer.end();
+
+        if (chargeRatio > 0) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(Color.GREEN);
+            shapeRenderer.rect(worldWidth / 2f - meterWidth / 2f, worldHeight - 0.5f, meterWidth * chargeRatio, meterHeight);
+            shapeRenderer.end();
+        }
     }
 
     @Override
