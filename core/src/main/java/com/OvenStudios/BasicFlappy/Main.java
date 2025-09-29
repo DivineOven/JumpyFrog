@@ -7,8 +7,11 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+
+import java.util.Random;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Main implements ApplicationListener {
@@ -17,28 +20,50 @@ public class Main implements ApplicationListener {
     Texture frogTexture;
     Texture alligatorTexture;
 
+    Array<Sprite> alligatorSprites;
+
     SpriteBatch spriteBatch;
     Sprite frogSprite;
+    //Sprite alligatorSprite;
 
     FitViewport viewport;
+    Random random = new Random();
 
     float frogVelocityY = 0f;
     float gravity = -3f;
     float spaceTimer = 0f;
     float maxJumpCharge = 4f;
+    float alligatorSpeed = 1.5f;
+
+    private static final int ALLIGATOR_COUNT = 4;
+    private static final float ALLIGATOR_SPACING = 4f;
+    private static final float ALLIGATOR_WIDTH = 1f;
+    private static final float ALLIGATOR_HEIGHT = 5f;
 
 
     @Override
     public void create() {
         backgroundTexture = new Texture("BasicFlappyBackground.png");
-        frogTexture = new Texture("frogSquareTest.png");
+        frogTexture = new Texture("frog.png");
+        alligatorTexture = new Texture("alligatorTest.png");
 
         spriteBatch = new SpriteBatch();
         viewport = new FitViewport(8, 5);
 
         frogSprite = new Sprite(frogTexture);
-        frogSprite.setSize(0.5f, 0.5f);
-        frogSprite.setPosition(1, viewport.getWorldHeight() / 3f - frogSprite.getHeight() / 2f);
+        frogSprite.setSize(0.9f, 0.6f);
+        frogSprite.setPosition(0.5f, 0);
+
+        alligatorSprites = new Array<>();
+        float firstAlligatorX = frogSprite.getX() + 2f; // Start the first alligator in the middle of the screen.
+        for (int i = 0; i < ALLIGATOR_COUNT; i++) {
+            Sprite alligator = new Sprite(alligatorTexture);
+            alligator.setSize(ALLIGATOR_WIDTH, ALLIGATOR_HEIGHT);
+            alligatorSprites.add(alligator);
+            // Position the alligators starting from the new X position.
+            repositionAlligator(alligator, firstAlligatorX + i * ALLIGATOR_SPACING);
+        }
+
 
     }
 
@@ -56,6 +81,8 @@ public class Main implements ApplicationListener {
         logic();
         draw();
     }
+
+
 
     private void logic() {
         float delta = Gdx.graphics.getDeltaTime();
@@ -77,14 +104,42 @@ public class Main implements ApplicationListener {
             frogSprite.setY(viewport.getWorldHeight() - frogSprite.getHeight());
             frogVelocityY = 0;
         }
+
+        // Move and recycle alligators
+        if (frogSprite.getY() > 0) {
+            // Move and recycle alligators
+            for (Sprite alligator : alligatorSprites) {
+                // Move the alligator to the left
+                alligator.translateX(-alligatorSpeed * delta);
+
+                // If the alligator has moved off-screen, recycle it
+                if (alligator.getX() + alligator.getWidth() < 0) {
+                    // Reposition it to the right of the entire chain of alligators
+                    float newX = alligator.getX() + ALLIGATOR_COUNT * ALLIGATOR_SPACING;
+                    repositionAlligator(alligator, newX);
+                }
+            }
+        }
     }
 
-    private void createAlligator() {
-        //Create a new alligator obstacle at random height.
+
+    private void repositionAlligator(Sprite alligator, float x) {
+        // Decide on a random *visible* height for this instance.
+        float minVisibleHeight = 0.5f;
+        float maxVisibleHeight = 2.5f;
+        float randomVisibleHeight = random.nextFloat() * (maxVisibleHeight - minVisibleHeight) + minVisibleHeight;
+
+        // Calculate the Y position to hide the bottom part of the sprite.
+        // y_position = visible_part - total_height
+        float alligatorY = randomVisibleHeight - ALLIGATOR_HEIGHT;
+
+        // Position the alligator off-screen to the right, with its bottom part hidden.
+        alligator.setPosition(x, alligatorY);
     }
 
+    //TODO: ADD A CHARGE METER.
     private void input() {
-        if (frogSprite.getY() == 0 && Gdx.input.isKeyPressed(Input.Keys.SPACE)) {
+        if (frogSprite.getY() == 0 && Gdx.input.isKeyPressed(Input.Keys.SPACE)) { // TODO: CHANGE GETY() == 0 TO == GROUND.GETY() WHEN GROUND IS ADDED.
             spaceTimer += Gdx.graphics.getDeltaTime(); // Charge jump while on the ground and space is pressed.
         }
         if (!Gdx.input.isKeyPressed(Input.Keys.SPACE) && spaceTimer > 0) {
@@ -111,6 +166,10 @@ public class Main implements ApplicationListener {
 
         spriteBatch.draw(backgroundTexture, 0, 0, worldWidth, worldHeight);
         frogSprite.draw(spriteBatch);
+        for (Sprite alligator : alligatorSprites) {
+            alligator.draw(spriteBatch);
+        }
+
 
         spriteBatch.end();
     }
