@@ -21,10 +21,11 @@ public class Main implements ApplicationListener {
     Texture frogTexture;
     Texture alligatorTexture;
 
+    //Sprite Stuff
     Array<Sprite> alligatorSprites;
-
     SpriteBatch spriteBatch;
     Sprite frogSprite;
+    Sprite groundSprite;
 
     ShapeRenderer shapeRenderer;
 
@@ -33,9 +34,16 @@ public class Main implements ApplicationListener {
 
     float frogVelocityY = 0f;
     float gravity = -3f;
-    float spaceTimer = 0f;
     float maxJumpCharge = 4f;
     float alligatorSpeed = 1.5f;
+
+    // Jump charge variables
+    float currentCharge = 0f;
+    int chargeDirection = 1;
+    float savedCharge = 0f;
+
+    boolean isGameOver = false;
+    boolean acceptingInput = true;
 
     // Alligator configuration constants
     private static final int ALLIGATOR_COUNT = 4;
@@ -43,32 +51,41 @@ public class Main implements ApplicationListener {
     private static final float ALLIGATOR_WIDTH = 1f;
     private static final float ALLIGATOR_HEIGHT = 5f;
 
+    // Charge meter constants
+    private static final float MAX_CHARGE = 4f;
+    private static final float CHARGE_SPEED = 4f;
+
 
     @Override
     public void create() {
-        backgroundTexture = new Texture("BasicFlappyBackground.png");
+        backgroundTexture = new Texture("background.png");
+        groundTexture = new Texture("waterGround.png");
         frogTexture = new Texture("frog.png");
         alligatorTexture = new Texture("alligatorTest.png");
+
 
         spriteBatch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
         viewport = new FitViewport(8, 5);
 
+        groundSprite = new Sprite(groundTexture);
+        groundSprite.setSize(viewport.getWorldWidth(), groundTexture.getHeight() * (viewport.getWorldWidth() / groundTexture.getWidth()));
+        groundSprite.setPosition(0, 0);
+
         frogSprite = new Sprite(frogTexture);
         frogSprite.setSize(0.9f, 0.6f);
-        frogSprite.setPosition(0.5f, 0);
 
         alligatorSprites = new Array<>();
+
+        //Alligator creation logic.
         float firstAlligatorX = frogSprite.getX() + 2f; // Start the first alligator in the middle of the screen.
         for (int i = 0; i < ALLIGATOR_COUNT; i++) {
             Sprite alligator = new Sprite(alligatorTexture);
             alligator.setSize(ALLIGATOR_WIDTH, ALLIGATOR_HEIGHT);
             alligatorSprites.add(alligator);
-            // Position the alligators starting from the new X position.
-            repositionAlligator(alligator, firstAlligatorX + i * ALLIGATOR_SPACING);
         }
 
-
+        restart();
     }
 
     @Override
@@ -81,12 +98,16 @@ public class Main implements ApplicationListener {
 
     @Override
     public void render() {
-        input();
-        logic();
+        if (!isGameOver) {
+            input();
+            logic();
+        } else {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                restart();
+            }
+        }
         draw();
     }
-
-
 
     private void logic() {
         float delta = Gdx.graphics.getDeltaTime();
@@ -98,9 +119,10 @@ public class Main implements ApplicationListener {
         frogSprite.setY(frogSprite.getY() + frogVelocityY * delta);
 
         // Prevent the frog from falling below the ground
-        if (frogSprite.getY() < 0) {
-            frogSprite.setY(0);
+        if (frogSprite.getY() < groundSprite.getHeight()) {
+            frogSprite.setY(groundSprite.getHeight());
             frogVelocityY = 0;
+            savedCharge = 0;
         }
 
         // Prevent the frog from going above the screen
@@ -110,11 +132,16 @@ public class Main implements ApplicationListener {
         }
 
         // Move and recycle alligators
-        if (frogSprite.getY() > 0) {
+        if (frogSprite.getY() > groundSprite.getHeight()) {
             // Move and recycle alligators
             for (Sprite alligator : alligatorSprites) {
                 // Move the alligator to the left
                 alligator.translateX(-alligatorSpeed * delta);
+
+                if (frogSprite.getBoundingRectangle().overlaps(alligator.getBoundingRectangle())) {
+                    deathScreen();
+                    return;
+                }
 
                 // If the alligator has moved off-screen, recycle it
                 if (alligator.getX() + alligator.getWidth() < 0) {
@@ -124,10 +151,7 @@ public class Main implements ApplicationListener {
                 }
             }
         }
-
-
     }
-
 
     private void repositionAlligator(Sprite alligator, float x) {
         // Decide on a random *visible* height for this instance.
@@ -143,22 +167,28 @@ public class Main implements ApplicationListener {
         alligator.setPosition(x, alligatorY);
     }
 
-    //TODO: ADD A CHARGE METER.
     private void input() {
-        if (frogSprite.getY() == 0 && Gdx.input.isKeyPressed(Input.Keys.SPACE)) { // TODO: CHANGE GETY() == 0 TO == GROUND.GETY() WHEN GROUND IS ADDED.
-            spaceTimer += Gdx.graphics.getDeltaTime(); // Charge jump while on the ground and space is pressed.
-        }
-        if (!Gdx.input.isKeyPressed(Input.Keys.SPACE) && spaceTimer > 0) {
-            if (frogSprite.getY() == 0) {
-                frogVelocityY = Math.min(spaceTimer * 5f, maxJumpCharge); // Add jump velocity based on charge time.
+        if (!acceptingInput) {
+            if (!Gdx.input.isKeyPressed(Input.Keys.SPACE)) {
+                acceptingInput = true;
             }
-            spaceTimer = 0f; // Reset jump charge timer.
+            return;
         }
-    }
 
-    @Override
-    public void pause() {
-        // Invoked when your application is paused.
+        if (frogSprite.getY() == groundSprite.getHeight() && Gdx.input.isKeyPressed(Input.Keys.SPACE)) {
+            currentCharge += CHARGE_SPEED * Gdx.graphics.getDeltaTime() * chargeDirection;
+            if (currentCharge > MAX_CHARGE || currentCharge < 0) {
+                chargeDirection *= -1;
+            }
+        }
+        if (!Gdx.input.isKeyPressed(Input.Keys.SPACE) && currentCharge > 0) {
+            if (frogSprite.getY() == groundSprite.getHeight()) {
+                frogVelocityY = Math.abs(currentCharge);
+            }
+            savedCharge = currentCharge;
+            chargeDirection = 1;
+            currentCharge = 0;
+        }
     }
 
     private void draw() {
@@ -171,6 +201,7 @@ public class Main implements ApplicationListener {
         float worldHeight = viewport.getWorldHeight();
 
         spriteBatch.draw(backgroundTexture, 0, 0, worldWidth, worldHeight);
+        groundSprite.draw(spriteBatch);
         frogSprite.draw(spriteBatch);
         for (Sprite alligator : alligatorSprites) {
             alligator.draw(spriteBatch);
@@ -178,15 +209,21 @@ public class Main implements ApplicationListener {
 
         spriteBatch.end();
 
-        float meterHeight = 0.1f;
-        float meterWidth = maxJumpCharge;
-        float chargeRatio = Math.min(spaceTimer / maxJumpCharge, 1f);
+        float meterHeight = 0.2f;
+        float meterWidth = maxJumpCharge / 2;
+        float chargeToDisplay = currentCharge > 0 ? currentCharge : savedCharge;
+        float chargeRatio = chargeToDisplay / MAX_CHARGE;
 
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
+
+        Gdx.gl.glLineWidth(2f);
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(Color.BLACK);
         shapeRenderer.rect(worldWidth / 2f - meterWidth / 2f, worldHeight - 0.5f, meterWidth, meterHeight);
         shapeRenderer.end();
+
+        Gdx.gl.glLineWidth(1f);
 
         if (chargeRatio > 0) {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -196,13 +233,45 @@ public class Main implements ApplicationListener {
         }
     }
 
+    private void deathScreen() {
+        isGameOver = true;
+    }
+
+    private void restart() {
+        isGameOver = false;
+        acceptingInput = false;
+
+        frogVelocityY = 0f;
+        currentCharge = 0f;
+        savedCharge = 0f;
+        chargeDirection = 1;
+
+        frogSprite.setPosition(0.5f, groundSprite.getHeight());
+
+        float firstAlligatorX = frogSprite.getX() + 2f; // Start alligators off-screen
+        for (int i = 0; i < alligatorSprites.size; i++) {
+            Sprite alligator = alligatorSprites.get(i);
+            repositionAlligator(alligator, firstAlligatorX + i * ALLIGATOR_SPACING);
+        }
+    }
+
     @Override
     public void resume() {
         // Invoked when your application is resumed after pause.
     }
 
     @Override
+    public void pause() {
+        // Invoked when your application is paused.
+    }
+
+    @Override
     public void dispose() {
-        // Destroy application's resources here.
+        backgroundTexture.dispose();
+        groundTexture.dispose();
+        frogTexture.dispose();
+        alligatorTexture.dispose();
+        spriteBatch.dispose();
+        shapeRenderer.dispose();
     }
 }
